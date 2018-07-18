@@ -32,6 +32,7 @@
 #include "VMHelpers.hpp"
 #include "AtomicSupport.hpp"
 #include "ObjectMonitor.hpp"
+#include <immintrin.h>
 
 extern "C" {
 
@@ -276,6 +277,9 @@ objectMonitorEnterNonBlocking(J9VMThread *currentThread, j9object_t object)
 	IDATA result = (IDATA)(UDATA)object;
 	j9objectmonitor_t volatile *lwEA = VM_ObjectMonitor::inlineGetLockAddress(currentThread, object);
 	
+	unsigned status = _XABORT_EXPLICIT;
+	int n_tries;
+
 	if (NULL == lwEA) {
 		/* out of memory */
 		result = 0;
@@ -340,6 +344,16 @@ objectMonitorEnterNonBlocking(J9VMThread *currentThread, j9object_t object)
 	}
 	goto done;
 wouldBlock:
+	for (n_tries = 0; n_tries < 3; n_tries++) {
+		status = _xbegin();
+		if (status == _XBEGIN_STARTED || !(status & _XABORT_RETRY))
+			break;
+	}
+
+	if (status == _XBEGIN_STARTED) {
+		goto done;
+	}
+
 	/* unable to get thin lock by spinning - follow blocking path */
 	J9VMTHREAD_SET_BLOCKINGENTEROBJECT(currentThread, currentThread, object);
 	result = 1;

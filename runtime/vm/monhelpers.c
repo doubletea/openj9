@@ -30,6 +30,7 @@
 #include "vm_internal.h"
 #include "util_internal.h"
 #include "monhelp.h"
+#include <immintrin.h>
 
 IDATA 
 objectMonitorExit(J9VMThread* vmStruct, j9object_t object) 
@@ -129,6 +130,10 @@ objectMonitorExit(J9VMThread* vmStruct, j9object_t object)
 		if (monitor->owner != vmStruct->osThread) {
 			Trc_VM_objectMonitorExit_Exit_IllegalInflatedLock(vmStruct, monitor->owner, vmStruct->osThread);
 			return J9THREAD_ILLEGAL_MONITOR_STATE;
+		}
+
+		if (_xtest()) {
+			_xend();
 		}
 
 		/*
